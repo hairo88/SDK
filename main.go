@@ -38,9 +38,17 @@ func main() {
 	// LEDの現在の状態を保持する変数
 	var ledState string = "GREEN"
 
+	var keyState rpio.State = rpio.High
+
 	// LED関数（LEDの制御）
 	LED := func(color string) {
 		ledState = color
+
+		if color == "GREEN" {
+			keyState = rpio.High
+		} else if color == "RED" {
+			keyState = rpio.Low
+		}
 
 		Gpin := rpio.Pin(2) // GPIOピン2を使用
 		Rpin := rpio.Pin(3) // GPIOピン3を使用
@@ -65,9 +73,7 @@ func main() {
 
 	// メインループ
 	for {
-		if TiltPin.Read() == rpio.Low {
-			time.Sleep(10 * time.Millisecond)
-			if TiltPin.Read() == rpio.Low {
+			if TiltPin.Read() == rpio.Low && keyState == rpio.High {
 				LED("RED")
 				fmt.Println("Tilt!")
 
@@ -94,12 +100,33 @@ func main() {
 				} else {
 					fmt.Printf("Successfully uploaded %q to %q\n", fileName, bucketName)
 				}
-			}
-		} else if TiltPin.Read() == rpio.High {
-			time.Sleep(10 * time.Millisecond)
-			if TiltPin.Read() == rpio.High {
+		} else if TiltPin.Read() == rpio.High && keyState == rpio.Low {
 				LED("GREEN")
-			}
+				fmt.Println("Tilt!")
+
+				// 現在の時間を取得
+				currentTime := time.Now().Format(time.RFC3339)
+				content := fmt.Sprintf("LED State: %s, Time: %s", ledState, currentTime)
+
+				// ファイルの内容をバイト配列に変換
+				fileContent := []byte(content)
+
+				// PutObject入力を作成
+				putObjectInput := &s3.PutObjectInput{
+					Bucket:        aws.String(bucketName),
+					Key:           aws.String(fileName),
+					Body:          bytes.NewReader(fileContent),
+					ContentLength: aws.Int64(int64(len(fileContent))),
+					ContentType:   aws.String("text/plain"),
+				}
+
+				// S3バケットにファイルをアップロード
+				_, err := s3Client.PutObject(putObjectInput)
+				if err != nil {
+					fmt.Printf("Unable to upload %q to %q, %v", fileName, bucketName, err)
+				} else {
+					fmt.Printf("Successfully uploaded %q to %q\n", fileName, bucketName)
+				}
 		}
 	}
 }
