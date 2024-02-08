@@ -4,12 +4,30 @@ import (
 	"bytes"
 	"fmt"
 	"time"
+	"net/http"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/stianeikeland/go-rpio"
 )
+
+// HTTP POSTリクエストを送信する関数です。
+func sendOpenDoorRequest(keyStatus string) {
+    // POSTリクエストのボディを作成
+    requestBody := []byte(fmt.Sprintf(`{"key_status": "%s"}`, keyStatus))
+
+    // http.Post を使用してリクエストを送信
+    response, err := http.Post("https://golang-line-api-tokazaki-20240207.onrender.com/open_door", "application/json", bytes.NewBuffer(requestBody))
+    if err != nil {
+        fmt.Printf("POSTリクエストの送信に失敗しました: %v\n", err)
+        return
+    }
+    defer response.Body.Close()
+
+    // ステータスコードを確認
+    fmt.Printf("Response Status: %s\n", response.Status)
+}
 
 func main() {
 	// AWSセッションを作成
@@ -110,6 +128,8 @@ func main() {
 
 				// ファイルの内容をバイト配列に変換
 				fileContent := []byte(content)
+
+				sendOpenDoorRequest("OPEN")
 
 				// PutObject入力を作成
 				putObjectInput := &s3.PutObjectInput{
