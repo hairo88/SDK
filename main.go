@@ -49,9 +49,9 @@ func main() {
 	LED := func(status string) {
 		keyStatus = status
 		if keyStatus == "OPEN" {
-			pinStatus = rpio.High
-		} else if keyStatus == "CLOSE" {
 			pinStatus = rpio.Low
+		} else if keyStatus == "CLOSE" {
+			pinStatus = rpio.High
 		}
 
 		Gpin := rpio.Pin(2) // GPIOピン2を使用
@@ -62,11 +62,11 @@ func main() {
 		Rpin.Output()
 
 		if keyStatus == "CLOSE" {
-			Rpin.High()
-			Gpin.Low()
-		} else if keyStatus == "OPEN" {
 			Rpin.Low()
 			Gpin.High()
+		} else if keyStatus == "OPEN" {
+			Rpin.High()
+			Gpin.Low()
 		} else {
 			fmt.Println("LED ERROR")
 		}
@@ -79,17 +79,20 @@ func main() {
 	for {
 		// GPIOピンの状態に基づいて処理（省略）
 		if TiltPin.Read() == rpio.Low && pinStatus == rpio.High {
-			LED("CLOSE")
-			fmt.Println("Tilt detected, sending CLOSE status")
-			//sendOpenDoorRequest("CLOSE")
-		} else if TiltPin.Read() == rpio.High && pinStatus == rpio.Low {
 			LED("OPEN")
 			fmt.Println("Tilt reset, sending OPEN status")
 			//sendOpenDoorRequest("OPEN")
 			oldTime = time.Now()
+		} else if TiltPin.Read() == rpio.High && pinStatus == rpio.Low {
+			LED("CLOSE")
+			fmt.Println("Tilt detected, sending CLOSE status")
+			//sendOpenDoorRequest("CLOSE")
+			oldTime = time.Now()
 		} else if time.Now().Sub(oldTime) > 5*time.Second && keyStatus == "OPEN" {
-			// time.Minute * 5 に変更 本番は
-			sendOpenDoorRequest("Warning_Open")
+						   //time.Minute * 5 に変更 本番は
+			fmt.Println("Tilt detected, sending OPEN ERROR status")
+			//sendOpenDoorRequest("Warning_Open")
+			oldTime = time.Now()
 		}
 		fmt.Println(pinStatus)
 		time.Sleep(1 * time.Second) // 1秒スリープ
