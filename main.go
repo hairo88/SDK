@@ -73,6 +73,7 @@ func main() {
 	}
 
 	var oldTime time.Time = time.Now()
+	//var int coutnt
 
 	// メインループ
 	for {
@@ -80,15 +81,18 @@ func main() {
 		if TiltPin.Read() == rpio.Low && pinStatus == rpio.High {
 			LED("CLOSE")
 			fmt.Println("Tilt detected, sending CLOSE status")
-			sendOpenDoorRequest("CLOSE")
+			//sendOpenDoorRequest("CLOSE")
 		} else if TiltPin.Read() == rpio.High && pinStatus == rpio.Low {
 			LED("OPEN")
 			fmt.Println("Tilt reset, sending OPEN status")
-			sendOpenDoorRequest("OPEN")
+			//sendOpenDoorRequest("OPEN")
 			oldTime = time.Now()
 		} else if time.Now().Sub(oldTime) > 5*time.Second && keyStatus == "OPEN" {
 			// time.Minute * 5 に変更 本番は
 			sendOpenDoorRequest("Warning_Open")
 		}
+		fmt.Println(pinStatus)
+		time.Sleep(1 * time.Second) // 1秒スリープ
+		//count++;
 	}
 }
