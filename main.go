@@ -13,9 +13,9 @@ import (
 
 // HTTP POSTリクエストを送信する関数です。
 func sendOpenDoorRequest(status string, minMACAddr string) {
+
     // 現在の時刻を取得
     currentTime := time.Now().Format(time.RFC3339)
-    
     // POSTリクエストのボディを作成
     requestBody := []byte(fmt.Sprintf(`{"key_id": "%s", "key_status": "%s", "time": "%s"}`, minMACAddr, status, currentTime))
 
@@ -83,9 +83,13 @@ func main() {
 	TiltPin := rpio.Pin(17) // GPIOピン17を使用
 	TiltPin.Input()
 
+
 	// LEDの現在の状態を保持する変数
-	var keyStatus string = "OPEN"
-	var pinStatus rpio.State = rpio.High
+	var keyStatus string = "CLOSE"
+	var pinStatus rpio.State = TiltPin.Read()
+	if  pinStatus == rpio.High {
+		keyStatus = "OPEN"
+	}
 
 	// LED関数（LEDの制御）
 	LED := func(status string) {
@@ -136,14 +140,14 @@ func main() {
 			fmt.Println("Tilt detected, sending CLOSE status")
 			sendOpenDoorRequest("CLOSE", minMACAddr)
 			oldTime = time.Now()
-		} else if time.Now().Sub(oldTime) > 5*time.Second && keyStatus == "OPEN" {
+		} else if time.Now().Sub(oldTime) > 30*time.Second && keyStatus == "OPEN" {
 						   //time.Minute * 5 に変更 本番は
 			fmt.Println("Tilt detected, sending OPEN ERROR status")
 			sendOpenDoorRequest("Warning_Open", minMACAddr)
 			oldTime = time.Now()
 		}
 		fmt.Println(pinStatus)
-		time.Sleep(1 * time.Second) // 1秒スリープ
+		time.Sleep(10 * time.Second) // 1秒スリープ
 		//count++;
 	}
 }
