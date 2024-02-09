@@ -5,17 +5,19 @@ import (
 	"fmt"
 	"net/http"
 	"time"
-
 	"github.com/stianeikeland/go-rpio"
-)
+        "log"
+        "net"
+        "strings"
+    )
 
 // HTTP POSTリクエストを送信する関数です。
-func sendOpenDoorRequest(status string) {
+func sendOpenDoorRequest(status string, minMACAddr string) {
     // 現在の時刻を取得
     currentTime := time.Now().Format(time.RFC3339)
     
     // POSTリクエストのボディを作成
-    requestBody := []byte(fmt.Sprintf(`{"key_status": "%s", "time": "%s"}`, status, currentTime))
+    requestBody := []byte(fmt.Sprintf(`{"key_id": "%s", "key_status": "%s", "time": "%s"}`, minMACAddr, status, currentTime))
 
     // http.Post を使用してリクエストを送信
     response, err := http.Post("https://golang-line-api-tokazaki-20240207.onrender.com/open_door", "application/json", bytes.NewBuffer(requestBody))
@@ -27,6 +29,46 @@ func sendOpenDoorRequest(status string) {
 
     // ステータスコードを確認
     fmt.Printf("Response Status: %s\n", response.Status)
+}
+
+//MACアドレスの所得
+func getMacAddr() (string, error) {
+    ifas, err := net.Interfaces()
+    if err != nil {
+        return "", err
+    }
+    var minMACAddr string
+    minMACVal := uint64(0xffffffffffff) // Initialize with maximum possible MAC value
+    for _, ifa := range ifas {
+        a := ifa.HardwareAddr.String()
+        if a != "" {
+            // Replace ":" characters to compare numerical MAC address
+            a = strings.ReplaceAll(a, ":", "")
+            macVal := convertMACStringToValue(a)
+            if macVal < minMACVal {
+                minMACVal = macVal
+                minMACAddr = ifa.HardwareAddr.String()
+            }
+        }
+    }
+    return minMACAddr, nil
+}
+
+//最小のMACアドレスのみを選択 
+func convertMACStringToValue(mac string) uint64 {
+    var result uint64
+    for i := 0; i < len(mac); i++ {
+        result <<= 4
+        switch {
+        case '0' <= mac[i] && mac[i] <= '9':
+            result |= uint64(mac[i] - '0')
+        case 'a' <= mac[i] && mac[i] <= 'f':
+            result |= uint64(mac[i]-'a') + 10
+        case 'A' <= mac[i] && mac[i] <= 'F':
+            result |= uint64(mac[i]-'A') + 10
+        }
+    }
+    return result
 }
 
 func main() {
@@ -75,23 +117,29 @@ func main() {
 	var oldTime time.Time = time.Now()
 	//var int coutnt
 
+	//最小のmacアドレスの取得
+	 minMACAddr, err := getMacAddr()
+   	 if err != nil {
+   	     log.Fatal(err)
+   	 }
+
 	// メインループ
 	for {
 		// GPIOピンの状態に基づいて処理（省略）
 		if TiltPin.Read() == rpio.Low && pinStatus == rpio.High {
 			LED("OPEN")
 			fmt.Println("Tilt reset, sending OPEN status")
-			//sendOpenDoorRequest("OPEN")
+			sendOpenDoorRequest("OPEN", minMACAddr)
 			oldTime = time.Now()
 		} else if TiltPin.Read() == rpio.High && pinStatus == rpio.Low {
 			LED("CLOSE")
 			fmt.Println("Tilt detected, sending CLOSE status")
-			//sendOpenDoorRequest("CLOSE")
+			sendOpenDoorRequest("CLOSE", minMACAddr)
 			oldTime = time.Now()
 		} else if time.Now().Sub(oldTime) > 5*time.Second && keyStatus == "OPEN" {
 						   //time.Minute * 5 に変更 本番は
 			fmt.Println("Tilt detected, sending OPEN ERROR status")
-			//sendOpenDoorRequest("Warning_Open")
+			sendOpenDoorRequest("Warning_Open", minMACAddr)
 			oldTime = time.Now()
 		}
 		fmt.Println(pinStatus)
